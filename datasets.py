@@ -25,7 +25,23 @@ class qaTool_classifier_dataset(Dataset):
         self.gs_classes_dir = gs_classes_dir
         self.ct_patches_dir = ct_patches_dir
         self.mesh_inds = mesh_inds
-        self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir))[ind] for ind in mesh_inds]   ## Note: using self.GS_mesh_dir here to get stripped fnames, not a bug"
+        #print(sorted(getFiles(self.GS_mesh_dir)))
+        #print("moo")
+        #self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir)) for ind in mesh_inds]
+        #print(self.availableMeshes)
+        #print(len(self.mesh_inds))
+        #print(len(self.GS_mesh_dir))
+        #exit()
+
+        #self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir)) for ind in mesh_inds]
+        #self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir)) for ind in self.mesh_inds]
+        #print(len(self.availableMeshes))
+        #exit()
+        #print(sorted(getFiles(self.GS_mesh_dir))[ind])
+
+        #self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir))[ind] for ind in mesh_inds]   ## Note: using self.GS_mesh_dir here to get stripped fnames, not a bug"
+
+
         self.perturbs_to_sample = perturbations_to_sample_per_epoch
         # not sure what these are
         self._indices = None
@@ -34,6 +50,15 @@ class qaTool_classifier_dataset(Dataset):
         inds = np.arange(0,100,1)
         np.random.shuffle(inds)
         self.def_ind_sets = inds.reshape(self.perturbs_to_sample, 100 // self.perturbs_to_sample)
+
+        #self.availableMeshes = [sorted(getFiles(self.GS_mesh_dir))[inds] for inds in mesh_inds]   ## Note: using self.GS_mesh_dir here to get stripped fnames, not a bug"
+        #self.availableMeshes = [(sorted(getFiles(self.GS_mesh_dir)) for ind in mesh_inds)]
+        self.availableMeshes = sorted(getFiles(self.GS_mesh_dir))
+        #print("MOO")
+        #print(self.availableMeshes)
+
+
+
 
     def len(self):
         return len(self.availableMeshes) * self.perturbs_to_sample
@@ -47,8 +72,14 @@ class qaTool_classifier_dataset(Dataset):
         mesh_to_get = self.availableMeshes[mesh_idx]
         perturbation_to_get = random.choice(self.def_ind_sets[idx % self.perturbs_to_sample])
 
+        #print(perturbation_to_get)
+        #exit()
         # load relevant data
+        #print("moo")
         mesh = torch.load(join(self.mesh_dir, mesh_to_get.replace('.pt', f'_{perturbation_to_get}.pt')))
+        #print(perturbation_to_get)
+
+
         gs_classes = torch.argmax(torch.load(join(self.gs_classes_dir, mesh_to_get.replace('.pt', f'_{perturbation_to_get}.pt'))), dim=1)
 
         # get nodes and edges

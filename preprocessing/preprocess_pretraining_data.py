@@ -11,25 +11,27 @@ import torch
 import torch_geometric
 from torch_geometric.transforms import FaceToEdge, ToUndirected
 
-segs_to_get = ['Parotid-Lt.nrrd', 'Parotid-Rt.nrrd']
+segs_to_get = ['Parotid_L.nrrd', 'Parotid_R.nrrd']
 desired_spacing = [2.5, 1, 1]
-source_dir = "/path/to/directory/containing/the/nikolov_et_al/nrrd/data"    ## TODO: update path variable here ##
-output_dir = "/path/to/directory/in/which/to/put/preprocessed/data/"        ## TODO: update path variable here ##
-crop_midpoints = crop_midpoints.astype(int)
-pat_dirs = list(filter(lambda x: x != "TCGA-CV-A6JY", sorted(getDirs(source_dir))))
+source_dir = "/home/jczak/1__Programming/DataSet/LiveSet/Parotid1"    ## TODO: update path variable here ##
+output_dir = "/home/jczak/1__Programming/DataSet/LiveSet/PostProcess"        ## TODO: update path variable here ##
+#crop_midpoints = crop_midpoints.astype(int)
+pat_dirs = list(filter(lambda x: x != "0522c000", sorted(getDirs(source_dir))))
 
 # resample all CTs to isotropic (1 x 1 x 2.5)
 for pdx, pat_dir in enumerate(tqdm(pat_dirs)):
-    CT = sitk.ReadImage(os.path.join(source_dir, pat_dir, "CT_IMAGE.nrrd"))
+    CT = sitk.ReadImage(os.path.join(source_dir, pat_dir, "img.nrrd"))
     CT_spacing = np.array(CT.GetSpacing())
     npy_CT = sitk.GetArrayFromImage(CT)
     # resample CT
     scale_factor = CT_spacing[[2,0,1]] / desired_spacing
     npy_CT = rescale(npy_CT, scale=scale_factor, order=3, preserve_range=True, anti_aliasing=True)
-    seg_fnames = getFiles(os.path.join(source_dir, pat_dir, "segmentations"))
+    seg_fnames = getFiles(os.path.join(source_dir, pat_dir, "structures"))
     for seg_idx, seg_fname in enumerate(seg_fnames):       
-        if (seg_fname in segs_to_get) or (seg_fname.replace('_','-') in segs_to_get):      
-            seg = sitk.ReadImage(os.path.join(source_dir, pat_dir, "segmentations", seg_fname))
+        if (seg_fname in segs_to_get) or (seg_fname.replace('_','-') in segs_to_get):
+            print("works")
+            exit()
+            seg = sitk.ReadImage(os.path.join(source_dir, pat_dir, "structures", seg_fname))
             assert((np.array(seg.GetSpacing()) == CT_spacing).all())
             npy_seg = sitk.GetArrayFromImage(seg)
             # resample

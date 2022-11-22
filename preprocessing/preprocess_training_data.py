@@ -4,6 +4,7 @@ import numpy as np
 import SimpleITK as sitk
 
 import open3d as o3d
+#from utils import try_mkdir
 from utils import *
 from tqdm import tqdm
 
@@ -17,17 +18,71 @@ from scipy.ndimage import distance_transform_edt
 from scipy.signal import fftconvolve
 from scipy.interpolate import interpn
 
-segs_to_get = ['Parotid-Lt.nrrd', 'Parotid-Rt.nrrd']
+def try_mkdir(dir_name):
+    try:
+        os.mkdir(dir_name)
+    except OSError:
+        pass
+
+def try_mkdir2(dir_name):
+    try:
+        os.mkdir(dir_name)
+    except OSError:
+        pass
+
+device = 'cuda'
+
+segs_to_get = ['Parotid_L.nrrd', 'Parotid_R.nrrd']
 desired_spacing = [2.5, 1, 1]
 num_deformations_to_generate_per_seg = 100
-source_dir = "/path/to/directory/containing/the/nikolov_et_al/nrrd/data"    ## TODO: update path variable here ##
-output_dir = "/path/to/directory/in/which/to/put/preprocessed/data/"        ## TODO: update path variable here ##
-pat_dirs = list(filter(lambda x: x != "TCGA-CV-A6JY", sorted(getDirs(source_dir))))
+#set1
+#source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_1"
+#output_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_1"
+
+#set 2
+#source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_2"
+#output_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_2"
+
+#set 3
+#source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_3"
+#output_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_3"
+
+#Full_set
+
+#source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_2"
+
+#source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_3"
+
+
+source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/Data_set1/1_set_test/Set_3"    ## TODO: update path variable here ##
+
+#output_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_1"
+
+output_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_3"        ## TODO: update path variable here ##
+
+
+
+
+
+pat_dirs = list(filter(lambda x: x != "0522c0", sorted(getDirs(source_dir))))
 
 global_signed_classes = torch.zeros((5))
 # resample all CTs to isotropic (1 x 1 x 2.5)
+
+try_mkdir(join(output_dir, "triangles_smooth/"))
+try_mkdir(join(output_dir, "triangles_smooth", "GS"))
+try_mkdir(join(output_dir, "graph_objects"))
+try_mkdir2(join(output_dir, "graph_objects", "GS"))
+try_mkdir(join(output_dir, "GS_uniform_points"))
+try_mkdir(join(output_dir, "ct_patches"))
+try_mkdir(join(output_dir, "signed_classes"))
+
+
+
 for pdx, pat_dir in enumerate(tqdm(pat_dirs)):
-    CT = sitk.ReadImage(join(source_dir, pat_dir, "CT_IMAGE.nrrd"))
+
+
+    CT = sitk.ReadImage(join(source_dir, pat_dir, "img.nrrd"))
     CT_spacing = np.array(CT.GetSpacing())
     npy_CT = sitk.GetArrayFromImage(CT)
     # resample CT
@@ -35,10 +90,16 @@ for pdx, pat_dir in enumerate(tqdm(pat_dirs)):
     npy_CT = rescale(npy_CT, scale=scale_factor, order=3, preserve_range=True, anti_aliasing=True)
     # normalise CT
     npy_CT = windowLevelNormalize(npy_CT, level=40, window=350)
-    seg_fnames = getFiles(join(source_dir, pat_dir, "segmentations"))
-    for seg_idx, seg_fname in enumerate(seg_fnames):       
-        if (seg_fname in segs_to_get) or (seg_fname.replace('_','-') in segs_to_get):
-            seg = sitk.ReadImage(join(source_dir, pat_dir, "segmentations", seg_fname))
+    seg_fnames = getFiles(join(source_dir, pat_dir, "structures"))
+
+    #for seg_fname in enumerate(seg_fnames):
+    for seg_idx, seg_fname in enumerate(seg_fnames):
+
+        if (seg_fname in segs_to_get):
+
+
+            #exit()
+            seg = sitk.ReadImage(join(source_dir, pat_dir, "structures", seg_fname))
             assert((np.array(seg.GetSpacing()) == CT_spacing).all())
             npy_seg = sitk.GetArrayFromImage(seg)
             # resample
@@ -65,8 +126,12 @@ for pdx, pat_dir in enumerate(tqdm(pat_dirs)):
             seg_mesh = seg_mesh.simplify_quadric_decimation(target_number_of_triangles=1000)
             seg_mesh = seg_mesh.filter_smooth_taubin(number_of_iterations=10)
             seg_mesh.remove_unreferenced_vertices()
+            #testing uncommented
             #o3d.io.write_triangle_mesh(join(output_dir, f"{pat_dir}_{seg_fname[8]}_GS.ply"), seg_mesh)
-            
+
+
+
+
             # grab the smoothed vertices and triangles
             verts_smooth = np.asarray(seg_mesh.vertices)
             triangles_smooth = np.asarray(seg_mesh.triangles)
@@ -135,9 +200,9 @@ for pdx, pat_dir in enumerate(tqdm(pat_dirs)):
                 # save the image patches
                 node_coords = data.pos / torch.tensor(desired_spacing)
                 if seg_fname[8] == "R":
-                    patches_tensor = sample_ct_on_nodes(node_coords, torch.tensor(flipped_npy_CT))
+                    patches_tensor = sample_ct_on_nodes(pat_dir, node_coords, torch.tensor(flipped_npy_CT))
                 else:
-                    patches_tensor = sample_ct_on_nodes(node_coords, torch.tensor(npy_CT))
+                    patches_tensor = sample_ct_on_nodes(pat_dir, node_coords, torch.tensor(npy_CT))
                 # save node patches
                 torch.save(patches_tensor, join(output_dir, "ct_patches", f"{pat_dir}_{seg_fname[8]}_{deformation_num}.pt"))
 

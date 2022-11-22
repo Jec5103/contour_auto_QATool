@@ -14,23 +14,23 @@ from datasets import qaTool_classifier_dataset, qaTool_classifier_dataset_ablati
 
 def setup_argparse():
     parser = ap.ArgumentParser(prog="Main training program for qaTool")
-    parser.add_argument("--fold_num", choices=[1,2,3,4,5], type=int, help="The fold number for the kfold cross validation")
-    parser.add_argument("--use_pretrained_CNN", default=True, type=lambda x: bool(str2bool(x)), help="Whether to use the self-supervised CNN pretrained model")
+    parser.add_argument("--fold_num", choices=[1,2,3,4,5],default =1, type=int, help="The fold number for the kfold cross validation")
+    parser.add_argument("--use_pretrained_CNN", default=False, type=lambda x: bool(str2bool(x)), help="Whether to use the self-supervised CNN pretrained model")
     parser.add_argument("--lock_pretrained_CNN", default=False, type=lambda x: bool(str2bool(x)), help="Whether to lock the self-supervised CNN pretrained model")
-    parser.add_argument("--init_lr", default=0.005, type=float, help="The initial lr")
+    parser.add_argument("--init_lr", default=0.001, type=float, help="The initial lr")
     parser.add_argument("--processor", default="spline", type=str, help="The type of processor to use")
     parser.add_argument("--decoder_feat", default=128, type=int)
     parser.add_argument("--decoder_bn", default=True, type=lambda x: bool(str2bool(x)))
     parser.add_argument("--spline_deg", default=1, type=int)
     parser.add_argument("--kernel_size", default=5, type=int)
     parser.add_argument("--aggr", default="add", type=str)
-    parser.add_argument("--lr_sched", default="expS", type=str)
+    parser.add_argument("--lr_sched", default="cosS", type=str)
     parser.add_argument("--bs", default=16, type=int)
     parser.add_argument("--dtspe", default=25, type=int)
     parser.add_argument("--dropout", default=True, type=lambda x: bool(str2bool(x)))
     parser.add_argument("--encAbl", default=False, type=lambda x: bool(str2bool(x)))
     parser.add_argument("--GNNAbl", default=False, type=lambda x: bool(str2bool(x)))
-    parser.add_argument("--preAbl", default=False, type=lambda x: bool(str2bool(x)))
+    parser.add_argument("--preAbl", default=True, type=lambda x: bool(str2bool(x)))
     global args
     args = parser.parse_args()
 
@@ -40,8 +40,12 @@ def main():
     global args
 
     # set directories
-    root_dir = "/path/to/root/directory/"                           ## TODO: update path variable here ##
-    source_dir = "/path/to/directory/containing/preprocessed/data/" ## TODO: update path variable here ##
+    root_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/1_Codes/1_QAtool/contour_auto_QATool"                           ## TODO: update path variable here ##
+    #source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_2"
+
+    #source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_2/Set_3"
+
+    source_dir = "/mnt/jag16a/data/1_ML_KBQC_TestData/PostProcess_1"
     try_mkdir(join(root_dir, "models/"))
     models_dir = join(root_dir, "models/classification/")
     try_mkdir(models_dir)
@@ -91,6 +95,8 @@ def main():
     
     # Batch size with fancy graph batching
     train_BS = int(args.bs)
+    #print(train_inds)
+    #exit()
     val_BS = int(args.bs)
 
     # Create dataloaders
@@ -98,7 +104,13 @@ def main():
         print("Encoder ablation...")
         train_data = qaTool_classifier_dataset_ablation(mesh_dir=mesh_dir, gs_classes_dir=gs_classes_dir, ct_patches_dir=ct_patches_dir, mesh_inds=train_inds, perturbations_to_sample_per_epoch=args.dtspe)
         val_data = qaTool_classifier_dataset_ablation(mesh_dir=mesh_dir, gs_classes_dir=gs_classes_dir, ct_patches_dir=ct_patches_dir, mesh_inds=val_inds, perturbations_to_sample_per_epoch=100)
-    else:    
+    else:
+
+
+
+        #train_data = qaTool_classifier_dataset(mesh_dir=mesh_dir, gs_classes_dir=gs_classes_dir,
+        #                                       ct_patches_dir=ct_patches_dir, mesh_inds=train_inds,
+        #                                       perturbations_to_sample_per_epoch=args.dtspe)
         train_data = qaTool_classifier_dataset(mesh_dir=mesh_dir, gs_classes_dir=gs_classes_dir, ct_patches_dir=ct_patches_dir, mesh_inds=train_inds, perturbations_to_sample_per_epoch=args.dtspe)
         val_data = qaTool_classifier_dataset(mesh_dir=mesh_dir, gs_classes_dir=gs_classes_dir, ct_patches_dir=ct_patches_dir, mesh_inds=val_inds, perturbations_to_sample_per_epoch=100)    
     train_loader = DataLoader(dataset=train_data, batch_size=train_BS, num_workers=8, shuffle=True)
@@ -114,7 +126,10 @@ def main():
         lr_scheduler = ExponentialLR(optimizer, gamma=0.95)
     elif args.lr_sched == "cosS":
         lr_scheduler  = CosineAnnealingLR(optimizer, T_max=50)
-    
+    #https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingLR.html
+
+
+
     # Create model trainer
     trainer = qaTool_classifier_trainer(model=model, optimizer=optimizer, lr_scheduler=lr_scheduler, device=device, train_loader=train_loader, triangles_dir=triangles_dir,
                                         val_loader=val_loader, logger=logger, checkpoint_dir=checkpoint_dir, patience=30, max_num_epochs=50, class_weights=class_weights)

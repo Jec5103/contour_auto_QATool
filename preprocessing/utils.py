@@ -23,7 +23,7 @@ def getFiles(targetdir):
         ls.append(fname)
     return ls
 
-def sample_ct_on_nodes(node_coords, ct_subvolume, patch_size=5):
+def sample_ct_on_nodes(pat_dir, node_coords, ct_subvolume, patch_size=5):
     #
     # IMPORTANT: expects node coordinates in CT voxels coordinate system
     #
@@ -37,6 +37,7 @@ def sample_ct_on_nodes(node_coords, ct_subvolume, patch_size=5):
         cent_coord = torch.clamp(cent_coord_unclamped, min=torch.tensor([low_bound,low_bound,low_bound]), max=torch.tensor(ct_subvolume.shape) - high_bound)
         if (torch.round(cent_coord_unclamped) != torch.round(cent_coord)).any():
             warnings.warn("Node patch outside of the CT subvolume!", category=RuntimeWarning)
+            print(pat_dir)
             exit()
         cent_coord = torch.round(cent_coord).type(torch.int)
         cc_lo, cc_hi = cent_coord[0] - low_bound, cent_coord[0] + high_bound
